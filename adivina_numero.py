@@ -78,11 +78,18 @@ def play_round(difficulty_config):
     while attempts_used < max_attempts and not won:
         guess = read_guess(minimum, maximum)
         attempts_used += 1
+        remaining = max_attempts - attempts_used
 
         if guess < secret_number:
-            print(f"Muy bajo. (Te quedan {max_attempts - attempts_used} intentos)")
+            msg = "Muy bajo."
+            if remaining > 0:
+                msg += f" (Te quedan {remaining} intento(s))"
+            print(msg)
         elif guess > secret_number:
-            print(f"Muy alto. (Te quedan {max_attempts - attempts_used} intentos)")
+            msg = "Muy alto."
+            if remaining > 0:
+                msg += f" (Te quedan {remaining} intento(s))"
+            print(msg)
         else:
             print("¡Correcto!")
             won = True
