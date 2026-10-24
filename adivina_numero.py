@@ -1,7 +1,6 @@
 import random
 from datetime import datetime
 
-
 GAME_TITLE = "Adivina el número"
 DIFFICULTIES = {
     "1": {"name": "Fácil", "minimum": 1, "maximum": 20, "attempts": 8},
@@ -11,80 +10,96 @@ DIFFICULTIES = {
 
 
 def get_player_name():
+    """Solicita y limpia el nombre del jugador, asignando uno por defecto si está vacío."""
     name = input("¿Cómo te llamas? ").strip()
-    if name == "":
+    if not name:
         return "Jugador"
     return name
 
 
 def choose_difficulty():
+    """
+    Muestra el menú de dificultades y repite la solicitud hasta que el usuario
+    ingrese una opción válida (Mejora adicional).
+    """
     print("\nSelecciona una dificultad:")
-    print("1. Fácil (1–20, 8 intentos)")
-    print("2. Medio (1–50, 7 intentos)")
-    print("3. Difícil (1–100, 6 intentos)")
+    for key, data in DIFFICULTIES.items():
+        print(f"{key}. {data['name']} ({data['minimum']}–{data['maximum']}, {data['attempts']} intentos)")
 
-    choice = input("Opción: ").lower()
-    if choice in DIFFICULTIES:
-        return DIFFICULTIES[choice]
+    while True:
+        choice = input("Opción: ").strip()
+        if choice in DIFFICULTIES:
+            return DIFFICULTIES[choice]
 
-    print("Opción inválida. Se usará la dificultad Fácil.")
-    return DIFFICULTIES["2"]
+        print("Opción inválida. Por favor ingresa 1, 2 o 3.")
 
 
 def read_guess(minimum, maximum):
-    raw_guess = input(f"Escribe un número entre {minimum} y {maximum}: ").strip()
-    if raw_guess.isdigit():
-        return int(raw_guess)
+    """
+    Lee la entrada del usuario y garantiza que sea un entero dentro del rango permitido.
+    No se penaliza al usuario si ingresa texto o números fuera de rango.
+    """
+    while True:
+        raw_guess = input(f"Escribe un número entre {minimum} y {maximum}: ").strip()
+        try:
+            guess = int(raw_guess)
+        except ValueError:
+            print("Entrada inválida. Debe ser un número entero.")
+            continue
 
-    print("La entrada debe ser un número entero.")
-    return None
+        if guess < minimum or guess > maximum:
+            print(f"El número debe estar entre {minimum} y {maximum}.")
+            continue
+
+        return guess
 
 
 def calculate_score(attempts_used, maximum_attempts, won):
-    if won is False:
+    """Calcula la puntuación obtenida en base a los intentos restantes."""
+    if not won:
         return 0
 
-    points = (maximum_attempts - attempts_used) * 10
-    if points < 0:
-        points = 0
-    return points
+    points = (maximum_attempts - attempts_used + 1) * 10
+    return max(points, 10)
 
 
-def play_round(settings):
-    secret_number = random.randint(settings["minimum"], settings["maximum"])
+def play_round(difficulty_config):
+    """Ejecuta una ronda respetando estrictamente el número máximo de intentos."""
+    minimum = difficulty_config["minimum"]
+    maximum = difficulty_config["maximum"]
+    max_attempts = difficulty_config["attempts"]
+
+    secret_number = random.randint(minimum, maximum)
     attempts_used = 0
-    guess = None
     won = False
 
-    print(
-        f"\nAdivina el número entre {settings['minimum']} y "
-        f"{settings['maximum']}. Tienes {settings['attempts']} intentos."
-    )
+    print(f"\nAdivina el número entre {minimum} y {maximum}. Tienes {max_attempts} intentos.")
 
-    while attempts_used <= settings["attempts"] and won is False:
-        guess = read_guess(settings["minimum"], settings["maximum"])
+    while attempts_used < max_attempts and not won:
+        guess = read_guess(minimum, maximum)
         attempts_used += 1
+        remaining = max_attempts - attempts_used
 
-        if guess is None:
-            continue
-        elif guess < settings["minimum"]:
-            print("El número es menor que el rango permitido.")
-        elif guess > settings["maximum"]:
-            print("El número es mayor que el rango permitido.")
-        elif guess < secret_number:
-            print("Muy bajo.")
+        if guess < secret_number:
+            msg = "Muy bajo."
+            if remaining > 0:
+                msg += f" (Te quedan {remaining} intento(s))"
+            print(msg)
         elif guess > secret_number:
-            print("Muy alto.")
+            msg = "Muy alto."
+            if remaining > 0:
+                msg += f" (Te quedan {remaining} intento(s))"
+            print(msg)
         else:
             print("¡Correcto!")
             won = True
 
     if won:
-        print(f"Adivinaste en {attempts_used} intentos.")
+        print(f"¡Felicidades! Adivinaste en {attempts_used} intento(s).")
     else:
-        print(f"Se acabaron los intentos. El número era {secret_number}.")
+        print(f"Se acabaron los intentos. El número secreto era {secret_number}.")
 
-    score = calculate_score(attempts_used, settings["attempts"], won)
+    score = calculate_score(attempts_used, max_attempts, won)
     return {
         "won": won,
         "attempts": attempts_used,
@@ -94,6 +109,7 @@ def play_round(settings):
 
 
 def save_score(scores, player_name, result, difficulty_name):
+    """Registra y ordena los puntajes obtenidos."""
     record = {
         "name": player_name,
         "score": result["score"],
@@ -107,8 +123,9 @@ def save_score(scores, player_name, result, difficulty_name):
 
 
 def show_leaderboard(scores):
+    """Muestra los mejores puntajes de la sesión actual."""
     print("\n--- Mejores resultados de esta sesión ---")
-    if len(scores) == 0:
+    if not scores:
         print("Todavía no hay resultados.")
         return
 
@@ -120,18 +137,28 @@ def show_leaderboard(scores):
 
 
 def play_game(scores):
+    """Coordina el flujo completo de una partida."""
     player_name = get_player_name()
-    settings = choose_difficulty()
-    result = play_round(settings)
-    save_score(scores, player_name, result, settings["name"])
+    difficulty_config = choose_difficulty()
+    result = play_round(difficulty_config)
+    save_score(scores, player_name, result, difficulty_config["name"])
     show_leaderboard(scores)
 
 
 def ask_to_play_again():
-    answer = input("\n¿Quieres jugar otra vez? (s/n): ").lower()
-    if answer == "s" or answer == "si" or answer == "sí":
-        return True
-    return False
+    """
+    Pregunta si se desea jugar otra vez tolerando espacios, mayúsculas y variantes comunes.
+    """
+    valid_yes = {"s", "si", "sí", "y", "yes"}
+    valid_no = {"n", "no"}
+
+    while True:
+        answer = input("\n¿Quieres jugar otra vez? (s/n): ").strip().lower()
+        if answer in valid_yes:
+            return True
+        if answer in valid_no:
+            return False
+        print("Respuesta no válida. Por favor escribe 's' para sí o 'n' para no.")
 
 
 def main():
@@ -141,10 +168,11 @@ def main():
 
     while True:
         play_game(scores)
-        if ask_to_play_again() is False:
+        if not ask_to_play_again():
             break
 
     print("\nGracias por jugar.")
 
 
-main()
+if __name__ == "__main__":
+    main()
